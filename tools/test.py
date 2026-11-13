@@ -1,9 +1,5 @@
-#!/usr/bin/env -S uv run --managed-python --script
-# /// script
-# requires-python = ">=3.13,<3.14"
-# dependencies = []
-# ///
-"""Run the template regression suite from any working directory."""
+#!/usr/bin/env -S uv run
+"""Run the template regression suite."""
 from pathlib import Path
 import unittest
 

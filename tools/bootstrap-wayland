@@ -30,7 +30,7 @@ while read -r checksum filename url; do
         rmdir "$staging"
     fi
 done < "$root/static/wayland.lock"
-meson=(uv run --project "$root" --locked --managed-python --python "$python_version" python "$work/meson-1.7.2/meson.py")
+meson=(uv run --project "$root" meson)
 # Build the pinned protocol generator for the build host, using its Expat.
 if [[ ! -f $wayland_work/scanner.done ]]; then
     env -u PKG_CONFIG_LIBDIR -u PKG_CONFIG_PATH -u CC -u CXX -u CFLAGS -u LDFLAGS \

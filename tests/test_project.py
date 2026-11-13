@@ -39,7 +39,8 @@ class ProjectTests(unittest.TestCase):
             source = root / 'Original Cartridge.nes'; source.write_bytes(rom())
             destination = root / 'with spaces' / 'nes-test'
             env = {**os.environ, 'ROM': str(source), 'DEST': str(destination),
-                   'GAME_ID': '', 'TITLE': 'Test', 'REGION': 'auto'}
+                   'GAME_ID': '', 'TITLE': 'Test', 'REGION': 'auto',
+                   'UV_PROJECT_ENVIRONMENT': os.environ.get('UV_PROJECT_ENVIRONMENT', str(root / 'test-env'))}
             template = root / 'template'
             shutil.copytree(manifest.ROOT, template, ignore=shutil.ignore_patterns('.git', '.venv', '__pycache__'))
             (template / '.venv').mkdir(exist_ok=True)
@@ -48,7 +49,7 @@ class ProjectTests(unittest.TestCase):
             (template / 'saves').mkdir(exist_ok=True)
             (template / 'saves/progress.state').write_bytes(b'local save')
             command = [str(template / 'tools/new-game.py')]
-            first = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True)
+            first = subprocess.run(command, cwd=template, env=env, capture_output=True, text=True)
             self.assertEqual(first.returncode, 0, first.stderr)
             self.assertFalse((destination / '.git').exists())
             self.assertFalse((destination / '.venv').exists())
@@ -58,7 +59,7 @@ class ProjectTests(unittest.TestCase):
                 self.assertEqual((destination / name).read_bytes(), (template / name).read_bytes())
             self.assertEqual(json.loads((destination / 'game.json').read_text())['id'], 'nes-test')
             self.assertEqual((destination / 'roms' / source.name).read_bytes(), source.read_bytes())
-            checked = subprocess.run([str(destination / 'tools/manifest.py'), 'check'], cwd=root,
+            checked = subprocess.run([str(destination / 'tools/manifest.py'), 'check'], cwd=destination,
                                      env=env, capture_output=True, text=True)
             self.assertEqual(checked.returncode, 0, checked.stderr)
             second = subprocess.run(command, env=env, capture_output=True, text=True)

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-source "$root/tools/python-env"
+lock_id=$(sha256sum "$root/uv.lock")
+export UV_PROJECT_ENVIRONMENT=${UV_PROJECT_ENVIRONMENT:-${XDG_CACHE_HOME:-$HOME/.cache}/nes-static/uv/${lock_id:0:16}}
+cd "$root"
 export NES_BUILD_DIR=${NES_BUILD_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/nes-static}
 export NES_LOG_DIR=${NES_LOG_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/nes-static-build}
 die() { printf '%s\n' "$*" >&2; exit 1; }
@@ -10,7 +12,7 @@ die() { printf '%s\n' "$*" >&2; exit 1; }
 probe_state="$NES_LOG_DIR/dependencies"
 mkdir -p "$NES_BUILD_DIR" "$probe_state"
 command -v gcc >/dev/null || die 'Missing gcc; install the build prerequisites.'
-recipe_key=$(cat "$root/static/sources.lock" "$root/tools/bootstrap-deps" "$root/tools/build-common" "$root/tools/python-env" "$root/.python-version" "$root/pyproject.toml" "$root/uv.lock" "$root/tools/prepare-build.py" <(gcc -dumpfullversion -dumpversion) <(ld --version | head -1) | sha256sum)
+recipe_key=$(cat "$root/static/sources.lock" "$root/tools/bootstrap-deps" "$root/tools/build-common" "$root/.python-version" "$root/pyproject.toml" "$root/uv.lock" "$root/tools/prepare-build.py" <(gcc -dumpfullversion -dumpversion) <(ld --version | head -1) | sha256sum)
 recipe_key=${recipe_key:0:16}
 prefix="$NES_BUILD_DIR/deps-$recipe_key"
 work="$NES_BUILD_DIR/build-$recipe_key"

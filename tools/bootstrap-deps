@@ -15,6 +15,9 @@ log="$probe_state/bootstrap.log"
 printf 'Dependency build log: %s\n' "$log"
 exec > >(tee -a "$log") 2>&1
 trap 'printf "Dependency build failed; see %s\n" "$log" >&2' ERR
+PYTHON=$(uv run --project "$root" python -c 'import sys; print(sys.executable)')
+export PYTHON
+python_abi=$(uv run --project "$root" python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 mkdir -p "$NES_BUILD_DIR/downloads" "$work" "$prefix/bin"
 while read -r checksum filename url; do
     [[ -n $checksum && $checksum != \#* ]] || continue
@@ -48,7 +51,7 @@ chmod +x "$prefix/bin/cc"
 export CC="$prefix/bin/cc" CXX=g++ AR=ar RANLIB=ranlib
 export CFLAGS='-O2 -g0' CXXFLAGS='-O2 -g0' LDFLAGS='-static'
 jobs=${NES_BUILD_JOBS:-4}
-meson=(uv run --project "$root" --locked --managed-python --python "$python_version" python "$work/meson-1.7.2/meson.py")
+meson=(uv run --project "$root" meson)
 autobuild() {
     local name=$1; shift
     [[ ! -f $work/$name.done ]] || return 0
@@ -63,7 +66,7 @@ autobuild() {
 autobuild xorgproto-2024.1
 autobuild libXau-1.0.12
 autobuild xcb-proto-1.17.0
-export PYTHONPATH="$prefix/lib/python${python_version%.*}/site-packages"
+export PYTHONPATH="$prefix/lib/python$python_abi/site-packages"
 autobuild libxcb-1.17.0 --disable-devel-docs --disable-doxygen-doc --disable-xdmcp
 if [[ ! -f $work/sndfile.done ]]; then
     cmake -S "$work/libsndfile-1.2.2" -B "$work/sndfile-build" -G Ninja \

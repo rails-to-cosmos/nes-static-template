@@ -1,8 +1,4 @@
-#!/usr/bin/env -S uv run --managed-python --script
-# /// script
-# requires-python = ">=3.13,<3.14"
-# dependencies = []
-# ///
+#!/usr/bin/env -S uv run
 """Apply the source adjustments required by the static library builds."""
 import argparse
 from pathlib import Path

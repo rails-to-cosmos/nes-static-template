@@ -6,7 +6,7 @@ static/LICENSE. No Nintendo ROM or game artwork is included.
 The build downloads libretro FCEUmm and its libretro-common support sources,
 musl, Xorg protocols, libXau, libxcb, xcb-proto, PulseAudio, libsndfile, Wayland,
 wayland-protocols, libffi, libxkbcommon and Meson. Exact source URLs, revisions
-and SHA-256 checksums are recorded in static/*.lock. Each upstream project
+and SHA-256 checksums are recorded in static/*.lock and uv.lock. Each upstream project
 retains its own copyright and license terms. Runtime license notices are
 copied to dist/licenses during the build.
 

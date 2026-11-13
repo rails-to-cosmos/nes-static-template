@@ -51,27 +51,32 @@ sudo pacman -S --needed gcc binutils make cmake ninja pkgconf bison expat curl t
 Bootstrap checks prerequisites and builds as the regular user. It does not
 install system packages. GCC compiles pinned musl and the runtime libraries;
 Zig is not used. `pyproject.toml` declares the supported Python range and Python
-dependencies; `uv.lock` records their resolution. There are currently no
-third-party Python dependencies. `.python-version` pins the exact interpreter.
-`tools/python-env` uses `uv sync --locked` with managed Python and supplies that
-environment to upstream generators too. Environments live under
-`${XDG_CACHE_HOME:-$HOME/.cache}/nes-static/python/<checkout hash>/`, keeping
-their symlinks on a Linux filesystem when a game directory is on exFAT.
-The system Python is unchanged. Python tools are executable `uv` scripts:
+dependencies; `uv.lock` pins Meson and its distribution checksum.
+`.python-version` pins the exact interpreter, and the project's `uv` settings
+select managed Python. Python tools use a plain `uv run` shebang:
 `./tools/manifest.py`, `./tools/new-game.py`, `./tools/prepare-build.py`,
-`./tools/test.py` and `./tools/check-runtime.py`. Their shebangs require managed
-Python, and their inline metadata declares the Python range and standalone
-dependencies. Make invokes them directly. Bootstrap exports the pinned Python
-version and runs upstream Meson through `uv run --locked`; Autoconf receives
-the managed environment's interpreter through `PYTHON` and `PATH`.
+`./tools/test.py` and `./tools/check-runtime.py`. Run these from the project
+directory, or use `make -C /path/to/project ...`. Make invokes them directly;
+bootstrap runs Meson with `uv run --project "$root" meson`. Autoconf receives
+the project's interpreter through its standard `PYTHON` variable. `uv` owns
+environment creation, dependency installation and interpreter selection.
+
+Make, launchers and bootstrap set `UV_PROJECT_ENVIRONMENT` to
+`${XDG_CACHE_HOME:-$HOME/.cache}/nes-static/uv/<lockfile hash>/`. This keeps
+virtual-environment symlinks on a Linux filesystem when game directories live
+on exFAT, and lets copies with identical dependencies share an environment.
+Set `UV_PROJECT_ENVIRONMENT` explicitly to choose another Linux-filesystem
+location. Plain `uv run` from a Linux-filesystem checkout uses uv's normal
+`.venv` default.
 
 After changing project Python dependencies, run `uv lock` and commit the
-manifest and lockfile together. Standalone scripts declare any dependencies
-in their inline metadata. The first bootstrap needs network access; verified
+manifest and lockfile together. Python dependencies belong in `pyproject.toml`.
+The first bootstrap needs network access; verified
 downloads and completed builds are reused.
 
-Source versions and SHA-256 checksums live in `static/*.lock`. Musl 1.2.5,
-Meson 1.7.2 and the runtime libraries are built from those archives. Host GCC,
+Runtime source versions and SHA-256 checksums live in `static/*.lock`.
+Musl 1.2.5 and the runtime libraries are built from those archives; uv installs
+Meson 1.7.2 from `uv.lock`. Host GCC,
 binutils, CMake and Ninja remain system tools; builds across toolchain versions
 are not claimed to be byte-identical. GCC/binutils versions participate in the
 dependency cache key. The executable targets baseline x86-64.

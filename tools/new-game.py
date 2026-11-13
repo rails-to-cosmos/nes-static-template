@@ -1,8 +1,4 @@
-#!/usr/bin/env -S uv run --managed-python --script
-# /// script
-# requires-python = ">=3.13,<3.14"
-# dependencies = []
-# ///
+#!/usr/bin/env -S uv run
 """Create an independent game directory from the reusable template."""
 import os
 from pathlib import Path
@@ -29,7 +25,7 @@ try:
                                                      '.init.lock', '__pycache__', '*.pyc', '*.log',
                                                      '.DS_Store', '._*', 'launch-nes-*'))
         env = {**os.environ, 'ROM':str(rom), 'GAME_ID':os.environ.get('GAME_ID') or destination.name}
-        subprocess.run([str(temporary/'tools/manifest.py'), 'init'], env=env, check=True)
+        subprocess.run([str(temporary/'tools/manifest.py'), 'init'], cwd=temporary, env=env, check=True)
         temporary.rename(destination)
     finally:
         if temporary.exists(): shutil.rmtree(temporary)

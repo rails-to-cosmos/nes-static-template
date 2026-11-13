@@ -1,8 +1,4 @@
-#!/usr/bin/env -S uv run --managed-python --script
-# /// script
-# requires-python = ">=3.13,<3.14"
-# dependencies = []
-# ///
+#!/usr/bin/env -S uv run
 """Validate cartridge metadata and generate a game without modifying the source ROM."""
 import fcntl
 import hashlib

@@ -3,6 +3,20 @@ revision = 3
 requires-python = "==3.13.*"
 
 [[package]]
+name = "meson"
+version = "1.7.2"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e5/2b/46bda4ef5a7ae4135dbfe27fc0368c44e5a349a897a54fdf2cedb8dcb66e/meson-1.7.2-py3-none-any.whl", hash = "sha256:82c6818dc81743c96de3a458f06175776ebfde4081195ea31ea6971838f25e38", size = 991596, upload-time = "2025-04-04T16:08:59.557Z" },
+]
+
+[[package]]
 name = "nes-static-template"
 version = "0.1.0"
 source = { virtual = "." }
+dependencies = [
+    { name = "meson" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "meson", specifier = "==1.7.2" }]
