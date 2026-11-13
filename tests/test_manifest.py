@@ -1,9 +1,6 @@
-import importlib.util
 import unittest
-from pathlib import Path
-
-spec = importlib.util.spec_from_file_location('manifest', Path(__file__).resolve().parents[1] / 'tools/manifest.py')
-manifest = importlib.util.module_from_spec(spec); spec.loader.exec_module(manifest)
+from nes_static import project as manifest
+from nes_static.support import Error
 
 
 def rom(mapper=0, battery=False, nes2=False):
@@ -18,29 +15,29 @@ def rom(mapper=0, battery=False, nes2=False):
 class ManifestTests(unittest.TestCase):
     def test_mapper_bits(self):
         for mapper in (0, 1, 4, 255, 256, 517):
-            self.assertEqual(manifest.inspect(rom(mapper, nes2=True))['mapper'], mapper)
+            self.assertEqual(manifest.inspect(rom(mapper, nes2=True)).mapper, mapper)
 
     def test_truncation(self):
-        with self.assertRaisesRegex(ValueError, 'length'): manifest.inspect(rom()[:-1])
+        with self.assertRaisesRegex(Error, 'length'): manifest.inspect(rom()[:-1])
 
     def test_unsupported_battery(self):
-        with self.assertRaisesRegex(ValueError, 'Battery'): manifest.inspect(rom(19, True))
-        self.assertTrue(manifest.inspect(rom(1, True, True))['battery'])
+        with self.assertRaisesRegex(Error, 'Battery'): manifest.inspect(rom(19, True))
+        self.assertTrue(manifest.inspect(rom(1, True, True)).battery)
 
     def test_special_hardware(self):
         data = bytearray(rom(nes2=True)); data[15] = 8
-        with self.assertRaisesRegex(ValueError, 'peripherals'): manifest.inspect(data)
+        with self.assertRaisesRegex(Error, 'peripherals'): manifest.inspect(data)
         data[15] = 0; data[7] |= 1
-        with self.assertRaisesRegex(ValueError, 'console'): manifest.inspect(data)
+        with self.assertRaisesRegex(Error, 'console'): manifest.inspect(data)
 
     def test_dirty_ines(self):
         data = bytearray(rom()); data[12:16] = b'Dude'
-        with self.assertRaisesRegex(ValueError, 'dirty'): manifest.inspect(data)
+        with self.assertRaisesRegex(Error, 'dirty'): manifest.inspect(data)
 
     def test_trainer_and_exponent_size(self):
         data = bytearray(rom(nes2=True)); data[6] |= 4
-        self.assertEqual(manifest.inspect(data + bytes(512))['prg_bytes'], 16384)
+        self.assertEqual(manifest.inspect(data + bytes(512)).prg_bytes, 16384)
         data = bytearray(rom(nes2=True)); data[4] = 14 << 2; data[9] = 15
-        self.assertEqual(manifest.inspect(data)['prg_bytes'], 16384)
+        self.assertEqual(manifest.inspect(data).prg_bytes, 16384)
 
 if __name__ == '__main__': unittest.main()

@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-source "$(dirname -- "${BASH_SOURCE[0]}")/build-common"
-wayland_key=$(cat "$root/static/wayland.lock" "$root/tools/wayland-common" "$root/tools/bootstrap-wayland" <(printf '%s' "$recipe_key") | sha256sum)
-wayland_key=${wayland_key:0:16}
-wayland_work="$NES_BUILD_DIR/wayland-$wayland_key"
-wayland_prefix="$wayland_work/install"

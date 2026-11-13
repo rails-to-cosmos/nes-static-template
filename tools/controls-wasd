@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-exec bash "$root/tools/run-game" --configure --set up=w --set left=a --set down=s --set right=d \
-    --set a=j --set b=k --set select=Tab --set start=Return

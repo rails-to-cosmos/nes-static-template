@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+command -v uv >/dev/null || { printf 'Install uv before using the template.\n' >&2; exit 1; }
+# Keep environment symlinks off exFAT; copies with the same lockfile can share it.
+key=$(sha256sum "$root/uv.lock")
+export UV_PROJECT_ENVIRONMENT=${UV_PROJECT_ENVIRONMENT:-${XDG_CACHE_HOME:-$HOME/.cache}/nes-static/uv/${key:0:16}}
+exec uv run --directory "$root" python -m nes_static "$@"

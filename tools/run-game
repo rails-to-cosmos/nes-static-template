@@ -1,14 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
-root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-lock_id=$(sha256sum "$root/uv.lock")
-export UV_PROJECT_ENVIRONMENT=${UV_PROJECT_ENVIRONMENT:-${XDG_CACHE_HOME:-$HOME/.cache}/nes-static/uv/${lock_id:0:16}}
-export NES_STATE_DIR=${NES_STATE_DIR:-$root/saves}
-cd "$root"
-identity=$("$root/tools/manifest.py" value id)
-binary="$root/dist/$identity"
-inputs=$("$root/tools/manifest.py" inputs)
-if [[ ! -x $binary || ! -f $binary.inputs-id || $(cat "$binary.inputs-id") != "$inputs" ]]; then
-    bash "$root/tools/build-game"
-fi
-exec "$binary" "$@"
+# Entry point used by launchers generated before the Python CLI.
+exec "$(dirname -- "${BASH_SOURCE[0]}")/nes-static" run "$@"

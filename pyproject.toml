@@ -9,3 +9,12 @@ dependencies = ["meson==1.7.2"]
 [tool.uv]
 package = false
 python-preference = "only-managed"
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.1",
+]
+
+[tool.mypy]
+strict = true
+files = ["nes_static"]
