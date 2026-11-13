@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+source "$(dirname -- "${BASH_SOURCE[0]}")/build-common"
+bash "$root/tools/bootstrap-deps"
+exec 9>"$NES_BUILD_DIR/setup.lock"
+flock 9
+read -r revision checksum url < "$root/static/core.lock"
+core_key=$(cat "$root/static/core.lock" "$root/tools/bootstrap-core" <(printf '%s' "$recipe_key") | sha256sum)
+core_key=${core_key:0:16}
+core="$NES_BUILD_DIR/core-$core_key/libretro-fceumm-$revision"
+if [[ -s $core/fceumm.a && -f $core/complete ]]; then
+    printf 'Core ready: %s\n' "$core"
+    exit 0
+fi
+mkdir -p "$NES_BUILD_DIR/core-$core_key" "$NES_LOG_DIR/static"
+log="$NES_LOG_DIR/static/bootstrap.log"
+printf 'Core build log: %s\n' "$log"
+exec > >(tee -a "$log") 2>&1
+trap 'printf "Core build failed; see %s\n" "$log" >&2' ERR
+archive="$NES_BUILD_DIR/downloads/libretro-fceumm-$revision.tar.gz"
+if [[ ! -f $archive ]]; then
+    curl --fail --location --retry 3 "$url" -o "$archive.part"
+    printf '%s  %s\n' "$checksum" "$archive.part" | sha256sum -c -
+    mv "$archive.part" "$archive"
+fi
+printf '%s  %s\n' "$checksum" "$archive" | sha256sum -c -
+if [[ ! -d $core ]]; then
+    staging=$(mktemp -d "$NES_BUILD_DIR/core-$core_key/extract.XXXXXX")
+    tar -xf "$archive" -C "$staging"
+    [[ -d $staging/libretro-fceumm-$revision ]] || die 'Unexpected core archive root.'
+    mv "$staging/libretro-fceumm-$revision" "$core"
+    rmdir "$staging"
+fi
+# Static libretro builds expect the frontend to supply these support functions.
+"$root/tools/prepare-build.py" core "$core"
+env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS -u MAKEFLAGS -u MAKEOVERRIDES \
+make -C "$core" -f Makefile.libretro -j "${NES_BUILD_JOBS:-4}" \
+    platform=unix STATIC_LINKING=1 HAVE_HDPACK=0 HAVE_NTSC=0 \
+    TARGET=fceumm.a CC="$prefix/bin/cc" \
+    AR=ar GIT_VERSION="$revision"
+[[ -s $core/fceumm.a ]] || die 'Missing core archive after build.'
+touch "$core/complete"
+printf 'Core ready: %s\n' "$core"

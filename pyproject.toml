@@ -1,0 +1,11 @@
+[project]
+name = "nes-static-template"
+version = "0.1.0"
+description = "Build standalone Linux executables from NES cartridges"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = []
+
+[tool.uv]
+package = false
+python-preference = "only-managed"

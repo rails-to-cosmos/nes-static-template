@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+export NES_STATE_DIR=${NES_STATE_DIR:-$root/saves}
+source "$root/tools/python-env"
+identity=$("$root/tools/manifest.py" value id)
+binary="$root/dist/$identity"
+inputs=$("$root/tools/manifest.py" inputs)
+if [[ ! -x $binary || ! -f $binary.inputs-id || $(cat "$binary.inputs-id") != "$inputs" ]]; then
+    bash "$root/tools/build-game"
+fi
+cd "$root"
+exec "$binary" "$@"

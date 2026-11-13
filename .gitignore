@@ -1,0 +1,30 @@
+# Cartridges, executables and local state
+/roms/
+/saves/
+/dist/
+/build/
+*.nes
+*.NES
+*.state
+battery.ram
+*.log
+/.init.lock
+/game.json.tmp
+
+# Python environments and generated files
+.venv/
+.uv-cache/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+
+# Local configuration and filesystem metadata
+.env
+.env.*
+!.env.example
+.DS_Store
+._*

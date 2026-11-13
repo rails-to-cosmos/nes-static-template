@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+source "$(dirname -- "${BASH_SOURCE[0]}")/build-common"
+[[ $EUID != 0 ]] || die 'Build as your regular user.'
+[[ $(uname -sm) = 'Linux x86_64' ]] || die 'The template currently targets Linux x86-64.'
+for tool in curl tar xz uv gcc g++ ar ranlib make cmake ninja pkg-config sha256sum flock readelf patch; do
+    command -v "$tool" >/dev/null || die "Missing $tool; install build prerequisites (lab bootstrap on Arch/CachyOS)."
+done
+case $(stat -f -c %T "$NES_BUILD_DIR") in
+    exfat|vfat|msdos) die 'NES_BUILD_DIR must be on a Linux filesystem.' ;;
+esac
+exec 9>"$NES_BUILD_DIR/setup.lock"
+flock 9
+[[ ! -f $prefix/complete ]] || { printf 'Dependencies ready: %s\n' "$prefix"; exit 0; }
+log="$probe_state/bootstrap.log"
+printf 'Dependency build log: %s\n' "$log"
+exec > >(tee -a "$log") 2>&1
+trap 'printf "Dependency build failed; see %s\n" "$log" >&2' ERR
+mkdir -p "$NES_BUILD_DIR/downloads" "$work" "$prefix/bin"
+while read -r checksum filename url; do
+    [[ -n $checksum && $checksum != \#* ]] || continue
+    archive="$NES_BUILD_DIR/downloads/$filename"
+    if [[ ! -f $archive ]]; then
+        curl --fail --location --retry 3 "$url" -o "$archive.part"
+        printf '%s  %s\n' "$checksum" "$archive.part" | sha256sum -c -
+        mv "$archive.part" "$archive"
+    fi
+    printf '%s  %s\n' "$checksum" "$archive" | sha256sum -c -
+    directory=${filename%.tar.*}
+    if [[ ! -d $work/$directory ]]; then
+        staging=$(mktemp -d "$work/extract.XXXXXX")
+        tar -xf "$archive" -C "$staging"
+        [[ -d $staging/$directory ]] || die "Unexpected archive root: $filename"
+        mv "$staging/$directory" "$work/$directory"
+        rmdir "$staging"
+    fi
+done < "$root/static/sources.lock"
+jobs=${NES_BUILD_JOBS:-4}
+if [[ ! -f $work/musl.done ]]; then
+    (cd "$work/musl-1.2.5"
+     CC=gcc CFLAGS='-O2 -g0 -march=x86-64 -mtune=generic' ./configure --prefix="$prefix/musl" --disable-shared
+     make -j "$jobs"
+     make install)
+    touch "$work/musl.done"
+fi
+printf '#!/usr/bin/env bash\nexec %q -march=x86-64 -mtune=generic -ffile-prefix-map=%q=/build -ffile-prefix-map=%q=/source "$@"\n' \
+    "$prefix/musl/bin/musl-gcc" "$NES_BUILD_DIR" "$root" > "$prefix/bin/cc"
+chmod +x "$prefix/bin/cc"
+export CC="$prefix/bin/cc" CXX=g++ AR=ar RANLIB=ranlib
+export CFLAGS='-O2 -g0' CXXFLAGS='-O2 -g0' LDFLAGS='-static'
+jobs=${NES_BUILD_JOBS:-4}
+meson=(uv run --project "$root" --locked --managed-python --python "$python_version" python "$work/meson-1.7.2/meson.py")
+autobuild() {
+    local name=$1; shift
+    [[ ! -f $work/$name.done ]] || return 0
+    (
+        cd "$work/$name"
+        ./configure --prefix="$prefix" --libdir="$prefix/lib" --disable-shared --enable-static "$@"
+        make -j "$jobs"
+        make install
+    )
+    touch "$work/$name.done"
+}
+autobuild xorgproto-2024.1
+autobuild libXau-1.0.12
+autobuild xcb-proto-1.17.0
+export PYTHONPATH="$prefix/lib/python${python_version%.*}/site-packages"
+autobuild libxcb-1.17.0 --disable-devel-docs --disable-doxygen-doc --disable-xdmcp
+if [[ ! -f $work/sndfile.done ]]; then
+    cmake -S "$work/libsndfile-1.2.2" -B "$work/sndfile-build" -G Ninja \
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+        -DCMAKE_INSTALL_PREFIX="$prefix" -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE='-O2 -DNDEBUG' \
+        -DCMAKE_CXX_FLAGS_RELEASE='-O2 -DNDEBUG' \
+        -DCMAKE_FIND_ROOT_PATH="$prefix" -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+        -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
+        -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DBUILD_PROGRAMS=OFF \
+        -DBUILD_EXAMPLES=OFF -DENABLE_EXTERNAL_LIBS=OFF -DENABLE_MPEG=OFF
+    cmake --build "$work/sndfile-build" -j "$jobs"
+    cmake --install "$work/sndfile-build"
+    touch "$work/sndfile.done"
+fi
+if [[ ! -f $work/pulse.done ]]; then
+    # Upstream hardcodes shared_library for the client; honor default_library.
+    "$root/tools/prepare-build.py" pulse "$work/pulseaudio-17.0"
+    "${meson[@]}" setup "$work/pulse-build" "$work/pulseaudio-17.0" \
+        --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=lib \
+        --buildtype=release --default-library=static \
+        --auto-features=disabled -Ddaemon=false -Dclient=true -Dtests=false \
+        -Ddoxygen=false -Dman=false -Ddatabase=simple -Drunning-from-build-tree=false \
+        -Dbashcompletiondir=no -Dzshcompletiondir=no
+    ninja -C "$work/pulse-build" -j "$jobs" src/libpulsecommon-17.0.a src/pulse/libpulse.a src/pulse/libpulse-simple.a
+    mkdir -p "$prefix/include/pulse"
+    cp "$work/pulseaudio-17.0/src/pulse/"*.h "$prefix/include/pulse/"
+    cp "$work/pulse-build/src/pulse/version.h" "$prefix/include/pulse/"
+    cp "$work/pulse-build/src/libpulsecommon-17.0.a" "$work/pulse-build/src/pulse/libpulse.a" \
+        "$work/pulse-build/src/pulse/libpulse-simple.a" "$prefix/lib/"
+    touch "$work/pulse.done"
+fi
+for library in libxcb.a libXau.a libpulse.a libpulse-simple.a libpulsecommon-17.0.a libsndfile.a; do
+    [[ -s $prefix/lib/$library ]] || die "Build missing $library"
+done
+cp "$root/static/sources.lock" "$prefix/sources.lock"
+touch "$prefix/complete"
+printf 'Dependencies ready: %s\n' "$prefix"
